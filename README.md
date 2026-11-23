@@ -1,0 +1,281 @@
+# stacks: my local dev infrastructure
+
+One repo that sets up my everyday local tools in Docker: a reverse proxy, a start page,
+Docker management, and one shared MariaDB and Postgres for all projects. Every tool
+gets a friendly address like **http://zzport.com** instead of `localhost:9000`.
+
+On a new laptop: install Docker, clone this repo, run `make setup`. That's it.
+
+---
+
+## What's inside and why
+
+| Folder | Address | What it is | Why I want it |
+| --- | --- | --- | --- |
+| `traefik` | http://zztraefik.com | **Reverse proxy**. Sits on port 80 and forwards each domain to the right container. | Lets every app have a name instead of a port number, and no port clashes between projects. **Required**: everything else goes through it. |
+| `traefik-home` | http://zzthome.com | **Start page** with a card for every running tool. | One bookmark to find everything. |
+| `portainer` | http://zzport.com | **Docker web UI**: containers, logs, volumes, shells. | Easier than the terminal for poking around. |
+| `mariadb` | `zzmariadb.com:3306` | **One shared MariaDB (MySQL)** server. | One database server for every PHP/Laravel/WordPress project instead of one per project. Saves RAM and setup. |
+| `postgres` | `zzpgdb.com:5432` | **One shared PostgreSQL** server. | Same idea, for projects that use Postgres. |
+| `mariadb-admin` | http://zzpma.com, http://zzdbmanager.com | **phpMyAdmin**, plus a tiny form that creates a database + user in one click. | Browse/import data, and set up a new project's DB in seconds. Adapted from [simple-phpadminer-mariadb-docker](https://github.com/anil3a/simple-phpadminer-mariadb-docker). |
+
+### How a request flows
+
+```
+browser: http://zzport.com
+   │  /etc/hosts says zzport.com = 127.0.0.1 (this laptop)
+   ▼
+Traefik (port 80) ── reads the Host name, finds the container whose label says
+   │                 Host(`zzport.com`)
+   ▼
+portainer container (port 9000, never exposed directly)
+```
+
+Containers don't publish their own ports. They join a shared Docker network called
+`proxy` and tell Traefik their domain with **labels** in their `compose.yaml`.
+
+> The `zz*.com` names only exist on this laptop. They are not real websites, and only
+> work because `/etc/hosts` points them at `127.0.0.1`.
+
+---
+
+## First-time setup (new laptop)
+
+### 1. Install the prerequisites
+
+| Tool | How | Check |
+| --- | --- | --- |
+| Docker Desktop | https://www.docker.com/products/docker-desktop/, then open it once | `docker info` |
+| git + make | macOS: `xcode-select --install` | `git --version && make --version` |
+
+### 2. Clone the repo
+
+```sh
+mkdir -p ~/Projects/personal && cd ~/Projects/personal
+git clone https://github.com/anil3a/stacks.git
+cd stacks
+```
+
+### 3. (Moving from an old laptop?) Bring your secrets and data
+
+Skip this on a brand-new install. Otherwise copy these from the old laptop
+(see [Moving to a new laptop](#moving-to-a-new-laptop)):
+
+- `mariadb/.env` and `postgres/.env`: database passwords
+- `backups/`: database dumps
+
+### 4. Run setup
+
+```sh
+make setup
+```
+
+This does, in order:
+
+1. **checks** Docker is running
+2. **adds the domains to `/etc/hosts`**: asks for your Mac password, keeps a backup at `/etc/hosts.bak`
+3. **creates `.env` files** with random passwords (only if they don't exist yet)
+4. **creates the `proxy` network** and **starts every stack**
+
+The first run downloads images, so give it a few minutes.
+
+### 5. Open it
+
+- Go to **http://zzthome.com**. You should see cards for everything.
+- Open **http://zzport.com** and **create the Portainer admin user within 5 minutes**.
+  Portainer locks itself after that for safety; run `make portainer` to unlock.
+
+### 6. (Moving laptops) Restore your databases
+
+```sh
+make restore-mariadb
+make restore-postgres
+```
+
+---
+
+## Everyday commands
+
+Run `make` (or `make help`) to see them all.
+
+| Command | What it does |
+| --- | --- |
+| `make up` | start everything (safe to run any time; only changes what's needed) |
+| `make down` | stop everything. **Your data is kept.** |
+| `make ps` | what's running |
+| `make logs s=traefik` | follow one stack's logs (Ctrl+C to quit) |
+| `make portainer` | (re)start just one stack, using any folder name |
+| `make pull && make up` | update to newer images |
+| `make backup` | dump all databases into `backups/` |
+
+---
+
+## Using the databases
+
+| From | MariaDB | Postgres |
+| --- | --- | --- |
+| Your Mac (TablePlus, DBeaver, CLI) | host `zzmariadb.com` port `3306` | host `zzpgdb.com` port `5432` |
+| Another container on the `proxy` network | host `mariadb` port `3306` | host `postgres` port `5432` |
+| Admin user | `root` | `postgres` |
+| Password | in `mariadb/.env` | in `postgres/.env` |
+
+**Give each project its own database and user**, not root:
+
+- MariaDB: open http://zzdbmanager.com and fill in the form.
+- Postgres:
+  ```sh
+  docker exec -it postgres psql -U postgres \
+    -c "CREATE ROLE myapp LOGIN PASSWORD 'secret';" \
+    -c "CREATE DATABASE myapp OWNER myapp;"
+  ```
+
+> **Why do the databases use ports when the websites don't?** Traefik picks the container by
+> reading the website name from each HTTP request. Database connections don't send that
+> name, so each database gets its own port (3306, 5432) on Traefik and the domain just
+> resolves to this laptop. That works because there's exactly one MariaDB and one Postgres.
+
+---
+
+## Adding a new app
+
+Create a folder, e.g. `myapp/compose.yaml`:
+
+```yaml
+name: myapp
+
+services:
+  myapp:
+    image: nginx:alpine          # your image
+    restart: unless-stopped
+    networks: [proxy]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.myapp.rule=Host(`zzmyapp.com`)
+      - traefik.http.routers.myapp.entrypoints=web
+      - traefik.http.services.myapp.loadbalancer.server.port=80   # port INSIDE the container
+      # optional: show on the start page
+      - traefik.home=true
+      - traefik.home.category=Apps
+      - traefik.home.alias=My App
+      - traefik.home.description=What it does
+      - traefik.home.image=https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/nginx.svg
+
+networks:
+  proxy:
+    external: true
+```
+
+Then:
+
+1. Add `zzmyapp.com` to the `127.0.0.1` line in `hosts.txt` and run `make hosts`.
+2. Add `myapp` to the `STACKS` list at the top of the `Makefile`.
+3. `make myapp`. It appears on the start page within 30 seconds.
+
+`myapp` must be unique per app in the router and service label names.
+
+---
+
+## Removing a stack
+
+Everything except `traefik` is optional.
+
+| Stack | Safe to remove? | Notes |
+| --- | --- | --- |
+| `traefik` | **No** | Every web address goes through it. |
+| `traefik-home` | Yes | Just the start page. |
+| `portainer` | Yes | |
+| `mariadb` | Yes | **Also remove `mariadb-admin`**, which needs it. |
+| `postgres` | Yes | |
+| `mariadb-admin` | Yes | |
+
+### Just switch it off for now
+
+```sh
+docker compose -f portainer/compose.yaml down    # stop it
+make portainer                                    # start it again later
+```
+
+`make up` will start it again, so for a longer break also do step 2 below.
+
+### Remove it for good
+
+1. **Back up first** if it holds data: `make backup`
+2. **Stop it:** `docker compose -f portainer/compose.yaml down`
+   - To **also delete its data**, add `-v`: `docker compose -f portainer/compose.yaml down -v`.
+     **This cannot be undone.**
+3. **Delete it from `STACKS`** at the top of the `Makefile`.
+4. **Delete its domain** from `hosts.txt`, then run `make hosts`.
+5. Optionally delete the folder: `rm -r portainer` (and commit).
+
+If you remove `mariadb` or `postgres`, you can also remove its port lines (`3306` / `5432`
+and the matching `--entrypoints...` line) from `traefik/compose.yaml` to free the port.
+
+---
+
+## Moving to a new laptop
+
+Images and config come from git, but **data and passwords don't**. Those live in Docker volumes
+and in the ignored `.env` files.
+
+On the **old** laptop:
+
+```sh
+make backup     # writes backups/mariadb.sql and backups/postgres.sql
+```
+
+Copy to the new laptop (AirDrop, USB, a private cloud folder):
+
+```
+backups/
+mariadb/.env
+postgres/.env
+```
+
+Keep the `.env` files. The dumps include the database users, so restoring with
+different `.env` passwords means `make backup`/`restore` and the admin tools can't log in.
+
+On the **new** laptop, put them back in the cloned repo, then run `make setup`,
+`make restore-mariadb` and `make restore-postgres`.
+
+Portainer settings aren't backed up. Just create the admin user again.
+
+---
+
+## Phone / other devices via Tailscale
+
+`/etc/hosts` only affects this laptop, so `zzport.com` won't open on your phone even when
+it's on Tailscale. The containers *are* reachable over Tailscale; only the name lookup is missing.
+To make it work you'd add a small DNS server here that answers `zz*.com` with this laptop's
+Tailscale IP, then add it under **Split DNS** in the Tailscale admin console. This is not
+set up yet.
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+| --- | --- |
+| Address doesn't load at all | Is it in `/etc/hosts`? `cat /etc/hosts`, then `make hosts`. Flush DNS: `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder` |
+| Browser shows a security / HTTPS error | Type `http://` explicitly. This setup is HTTP only. |
+| `404 page not found` | Traefik is up but the container isn't, or its label has a typo. Check http://zztraefik.com → HTTP Routers, and `make ps`. |
+| `make up` fails: port 80/3306/5432 already in use | Something else is using it (e.g. a Homebrew MySQL). Find it with `lsof -nP -iTCP:3306 -sTCP:LISTEN` and stop it. |
+| Portainer says the instance timed out | `make portainer`, then create the admin user within 5 minutes. |
+| New app missing from the start page | Wait 30 s; check it has `traefik.home=true`, `traefik.home.category` and `traefik.home.alias`. |
+| Forgot a database password | It's in `mariadb/.env` or `postgres/.env`. |
+
+---
+
+## Notes and quirks
+
+- **traefik-home** uses the 2017 image `lobre/traefik-home`, which only understands old
+  Traefik v1 labels and only exists for Intel CPUs (it runs emulated on Apple Silicon).
+  `traefik-home/home.tmpl` replaces its page so it reads the current labels, and
+  `traefik-home/Procfile` makes it refresh every 30 s because it can't read events from
+  Docker 29+.
+- **Big SQL imports:** `mariadb/conf/large-imports.cnf` (6 GB buffer pool) is off by default.
+  Uncomment its line in `mariadb/compose.yaml`, and first raise Docker Desktop's memory
+  limit (Settings → Resources).
+- The admin tools (Portainer, phpMyAdmin, DB manager) have no extra login in front of
+  them, and the ports listen on all network interfaces. That's fine on a home network or
+  Tailscale. On public Wi-Fi, consider `make down`, or bind ports to `127.0.0.1` in
+  `traefik/compose.yaml`.

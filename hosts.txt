@@ -1,0 +1,3 @@
+# >>> stacks (managed by `make hosts`; edit hosts.txt in the stacks repo, not here)
+127.0.0.1 zztraefik.com zzthome.com zzport.com zzmariadb.com zzpgdb.com zzpma.com zzdbmanager.com
+# <<< stacks

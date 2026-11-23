@@ -1,0 +1,36 @@
+name: traefik-home
+
+# Start page that lists every container labelled traefik.home=true.
+# The stock image only understands Traefik v1 labels, so home.tmpl is swapped for
+# a version that reads v3 labels: traefik.http.routers.<name>.rule=Host(`...`)
+#
+# Card labels (put these on any container):
+#   traefik.home=true              show it
+#   traefik.home.category=Infra    group heading (required)
+#   traefik.home.alias=Name        card title, also the sort key (required)
+#   traefik.home.description=...   subtitle
+#   traefik.home.image=<icon url>  icon (falls back to initials)
+#   traefik.home.url=http://...    override the link parsed from the router rule
+services:
+  traefik-home:
+    image: lobre/traefik-home:latest
+    platform: linux/amd64 # image is amd64-only; runs under emulation on Apple Silicon
+    container_name: traefik-home
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./home.tmpl:/app/home.tmpl:ro
+      # Its 2017 docker-gen can't parse Docker 29 events, so also re-render every 30s
+      - ./Procfile:/app/Procfile:ro
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik-home.rule=Host(`zzthome.com`)
+      - traefik.http.routers.traefik-home.entrypoints=web
+      - traefik.http.services.traefik-home.loadbalancer.server.port=80
+      - traefik.home=false
+
+networks:
+  proxy:
+    external: true

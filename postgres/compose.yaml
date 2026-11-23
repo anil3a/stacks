@@ -1,0 +1,41 @@
+name: postgres
+
+# Single shared PostgreSQL for all projects. Create one database + role per app.
+# Reach it at zzpgdb.com:5432 (routed by Traefik's TCP "postgres" entrypoint).
+# Other containers on the "proxy" network can use host "postgres" directly.
+services:
+  postgres:
+    image: postgres:18
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set it in postgres/.env}
+    volumes:
+      # Postgres 18+ images keep data under /var/lib/postgresql/<major>/docker
+      - postgres_data:/var/lib/postgresql
+    networks:
+      - proxy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    labels:
+      - traefik.enable=true
+      - traefik.tcp.routers.postgres.rule=HostSNI(`*`)
+      - traefik.tcp.routers.postgres.entrypoints=postgres
+      - traefik.tcp.services.postgres.loadbalancer.server.port=5432
+      # traefik-home card (no web UI, info only)
+      - traefik.home=true
+      - traefik.home.category=Databases
+      - traefik.home.alias=PostgreSQL
+      - traefik.home.description=zzpgdb.com:5432
+      - traefik.home.image=https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/postgres.svg
+
+volumes:
+  postgres_data:
+
+networks:
+  proxy:
+    external: true

@@ -1,0 +1,51 @@
+name: mariadb-admin
+
+# Web tools for the shared MariaDB (based on github.com/anil3a/simple-phpadminer-mariadb-docker).
+# Requires the mariadb stack; reads the root password from ../mariadb/.env
+services:
+  phpmyadmin:
+    image: phpmyadmin:5
+    container_name: phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mariadb
+      PMA_PORT: "3306"
+      UPLOAD_LIMIT: 1024M
+    volumes:
+      - ./conf/custom_php.ini:/usr/local/etc/php/conf.d/zz-custom.ini:ro
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.phpmyadmin.rule=Host(`zzpma.com`)
+      - traefik.http.routers.phpmyadmin.entrypoints=web
+      - traefik.http.services.phpmyadmin.loadbalancer.server.port=80
+      - traefik.home=true
+      - traefik.home.category=Databases
+      - traefik.home.alias=phpMyAdmin
+      - traefik.home.description=MariaDB web admin
+      - traefik.home.image=https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/phpmyadmin.svg
+
+  dbmanager:
+    build: ./app
+    image: local/mariadb-dbmanager
+    container_name: dbmanager
+    restart: unless-stopped
+    env_file: ../mariadb/.env # provides MARIADB_ROOT_PASSWORD
+    environment:
+      DB_HOST: mariadb
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dbmanager.rule=Host(`zzdbmanager.com`)
+      - traefik.http.routers.dbmanager.entrypoints=web
+      - traefik.http.services.dbmanager.loadbalancer.server.port=80
+      - traefik.home=true
+      - traefik.home.category=Databases
+      - traefik.home.alias=DB Manager
+      - traefik.home.description=Create MariaDB database + user
+
+networks:
+  proxy:
+    external: true

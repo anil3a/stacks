@@ -1,0 +1,30 @@
+name: portainer
+
+services:
+  portainer:
+    image: portainer/portainer-ce:lts
+    container_name: portainer
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.portainer.rule=Host(`zzport.com`)
+      - traefik.http.routers.portainer.entrypoints=web
+      - traefik.http.services.portainer.loadbalancer.server.port=9000
+      # traefik-home card
+      - traefik.home=true
+      - traefik.home.category=Infra
+      - traefik.home.alias=Portainer
+      - traefik.home.description=Docker management
+      - traefik.home.image=https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/portainer.svg
+
+volumes:
+  portainer_data:
+
+networks:
+  proxy:
+    external: true

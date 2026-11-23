@@ -1,0 +1,5 @@
+# Secrets: generated per machine by `make env`. Keep a copy somewhere safe (see README).
+.env
+# Database dumps from `make backup`
+backups/
+.DS_Store

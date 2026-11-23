@@ -1,0 +1,43 @@
+name: mariadb
+
+# Single shared MariaDB for all projects. Create one database + user per app.
+# Reach it at zzmariadb.com:3306 (routed by Traefik's TCP "mariadb" entrypoint).
+# Other containers on the "proxy" network can use host "mariadb" directly.
+services:
+  mariadb:
+    image: mariadb:11.8
+    container_name: mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?set it in mariadb/.env}
+      MARIADB_AUTO_UPGRADE: "1"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      # Tuning for very large imports (6G buffer pool: raise Docker Desktop memory first)
+      # - ./conf/large-imports.cnf:/etc/mysql/conf.d/large-imports.cnf:ro
+    networks:
+      - proxy
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    labels:
+      - traefik.enable=true
+      # The MySQL protocol has no TLS SNI, so match any host on the dedicated entrypoint
+      - traefik.tcp.routers.mariadb.rule=HostSNI(`*`)
+      - traefik.tcp.routers.mariadb.entrypoints=mariadb
+      - traefik.tcp.services.mariadb.loadbalancer.server.port=3306
+      # traefik-home card (no web UI, info only)
+      - traefik.home=true
+      - traefik.home.category=Databases
+      - traefik.home.alias=MariaDB
+      - traefik.home.description=zzmariadb.com:3306
+      - traefik.home.image=https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/mariadb.svg
+
+volumes:
+  mariadb_data:
+
+networks:
+  proxy:
+    external: true

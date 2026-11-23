@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Home</title>
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+  <style>
+    :root { --bg:#f6f7f9; --card:#fff; --text:#1d2330; --muted:#6b7385; --border:#e3e6eb; --accent:#3b6cf6; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#12151b; --card:#1b2029; --text:#e7eaf0; --muted:#98a1b3; --border:#2a313d; --accent:#7c9cff; }
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--text);
+           font:15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    main { max-width:960px; margin:0 auto; padding:32px 16px; }
+    h1 { font-size:22px; margin:0 0 24px; }
+    h2 { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:28px 0 12px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:12px; }
+    .card { position:relative; display:flex; align-items:center; gap:12px; padding:14px;
+            background:var(--card); border:1px solid var(--border); border-radius:10px; }
+    .card:has(a.stretch):hover { border-color:var(--accent); }
+    a.stretch { position:absolute; inset:0; border-radius:10px; }
+    .icon { width:40px; height:40px; flex:none; border-radius:8px; display:grid; place-items:center;
+            background:var(--bg); font-weight:600; color:var(--muted); overflow:hidden; }
+    .icon img { width:32px; height:32px; }
+    .name { font-weight:600; }
+    .desc { font-size:13px; color:var(--muted); word-break:break-all; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Home</h1>
+  {{ $homes := whereLabelValueMatches $ "traefik.home" "true" }}
+  {{ range $category, $inCategory := groupByLabel $homes "traefik.home.category" }}
+  <h2>{{ $category }}</h2>
+  <div class="grid">
+    {{ range $alias, $containers := groupByLabel $inCategory "traefik.home.alias" }}
+    {{ range $c := $containers }}
+    <div class="card">
+      <span class="icon" data-initials="{{ $alias }}">
+        {{ $img := index $c.Labels "traefik.home.image" }}{{ if $img }}<img src="{{ $img }}" alt="">{{ end }}
+      </span>
+      <span>
+        <div class="name">{{ $alias }}</div>
+        {{ $desc := index $c.Labels "traefik.home.description" }}{{ if $desc }}<div class="desc">{{ $desc }}</div>{{ end }}
+      </span>
+      {{/* Link: traefik.home.url if set, else the first HTTP router's Host(`...`) rule */}}
+      {{ $url := index $c.Labels "traefik.home.url" }}
+      {{ if $url }}
+      <a class="stretch" href="{{ $url }}" target="_blank" aria-label="{{ $alias }}"></a>
+      {{ else }}
+        {{ range $k, $v := $c.Labels }}{{ if and (hasPrefix "traefik.http.routers." $k) (hasSuffix ".rule" $k) }}
+      <a class="stretch" href="http://{{ replace (replace $v "Host(`" "" 1) "`)" "" 1 }}" target="_blank" aria-label="{{ $alias }}"></a>
+        {{ end }}{{ end }}
+      {{ end }}
+    </div>
+    {{ end }}
+    {{ end }}
+  </div>
+  {{ end }}
+</main>
+<script>
+  // Fall back to two-letter initials when there is no icon or it fails to load.
+  document.querySelectorAll('.icon').forEach(function (el) {
+    var initials = function () { el.textContent = el.dataset.initials.slice(0, 2).toUpperCase(); };
+    var img = el.querySelector('img');
+    if (!img) initials(); else img.addEventListener('error', initials);
+  });
+</script>
+</body>
+</html>

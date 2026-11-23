@@ -1,0 +1,49 @@
+name: traefik
+
+services:
+  traefik:
+    image: traefik:v3
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      # Entrypoints: HTTP for web UIs, raw TCP for the shared databases
+      - --entrypoints.web.address=:80
+      - --entrypoints.mariadb.address=:3306
+      - --entrypoints.postgres.address=:5432
+      # Docker provider: only containers with traefik.enable=true, reached over the "proxy" network
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=proxy
+      # Dashboard is routed below via labels (no insecure :8080 port)
+      - --api.dashboard=true
+      - --ping=true
+      - --log.level=INFO
+      - --accesslog=true
+    ports:
+      - "80:80"
+      - "3306:3306"
+      - "5432:5432"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - proxy
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik.rule=Host(`zztraefik.com`)
+      - traefik.http.routers.traefik.entrypoints=web
+      - traefik.http.routers.traefik.service=api@internal
+      # traefik-home card
+      - traefik.home=true
+      - traefik.home.category=Infra
+      - traefik.home.alias=Traefik
+      - traefik.home.description=Reverse proxy dashboard
+      - traefik.home.image=https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/traefik.svg
+
+networks:
+  proxy:
+    external: true
