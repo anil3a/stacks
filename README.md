@@ -285,6 +285,9 @@ One-time setup:
 
 1. Install Tailscale on the Mac and the phone, signed in to the **same tailnet**, and make
    sure the Mac shows as connected.
+   In Docker Desktop, open **Settings** > **Advanced**, turn on **Allow privileged port
+   forwarding to external machines**, then **Apply & restart**. Without it Docker can't
+   open port 53 on the Tailscale address.
 2. `make tailscale-dns`. It reads the Mac's Tailscale IP (`100.x.y.z`), writes
    `tailscale-dns/.env` and starts the DNS container on that address only (not on your
    Wi-Fi). It prints the IP.
@@ -331,6 +334,7 @@ Notes:
 | New app missing from the start page | Wait 30 s; check it has `traefik.home=true`, `traefik.home.category` and `traefik.home.alias`. |
 | Forgot a database password | It's in `mariadb/.env` or `postgres/.env`. |
 | `make tailscale-dns` says "bind: can't assign requested address" (or "cannot assign requested address") | Tailscale isn't connected on the Mac, or its IP changed. Connect Tailscale and run `make tailscale-dns` again. |
+| `make tailscale-dns` says "Cannot bind privileged port 53" | In Docker Desktop: **Settings** > **Advanced** > turn on **Allow privileged port forwarding to external machines**, Apply & restart. Then `docker compose -f tailscale-dns/compose.yaml down` and `make tailscale-dns` again. |
 | Phone can't open `*.zz.home.arpa` after a reboot | The DNS container started before Tailscale. Connect Tailscale, then `make tailscale-dns`. |
 
 ---
