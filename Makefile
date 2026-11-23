@@ -10,9 +10,11 @@ STACKS ?= traefik traefik-home portainer mariadb postgres mariadb-admin pdf-fill
 # Same list, reversed, for shutting down (works on macOS and Linux)
 REVERSED := $(shell echo $(STACKS) | awk '{for (i=NF; i>0; i--) printf "%s ", $$i}')
 BACKUP_DIR := backups
+# The Tailscale CLI: on PATH, or inside the Mac app
+TAILSCALE ?= $(shell command -v tailscale 2>/dev/null || echo /Applications/Tailscale.app/Contents/MacOS/Tailscale)
 
 .DEFAULT_GOAL := help
-.PHONY: help setup check up down restart pull ps logs network env hosts \
+.PHONY: help setup check up down restart pull ps logs network env hosts tailscale-dns \
         backup restore-mariadb restore-postgres $(STACKS)
 
 help: ## show this help
@@ -64,6 +66,14 @@ hosts: ## add/update the zz*.com names in /etc/hosts (asks for your password)
 	if cmp -s $$tmp /etc/hosts; then echo "/etc/hosts already up to date"; \
 	else sudo cp /etc/hosts /etc/hosts.bak && sudo sh -c "cat $$tmp > /etc/hosts" && echo "/etc/hosts updated (backup at /etc/hosts.bak)"; fi; \
 	rm -f $$tmp
+
+tailscale-dns: ## phone access over Tailscale: DNS for *.zz.home.arpa (README "Phone / other devices")
+	@if ! "$(TAILSCALE)" status >/dev/null 2>&1; then echo "Tailscale is not running on this Mac. Open Tailscale, connect, then retry."; exit 1; fi; \
+	ip=$$("$(TAILSCALE)" ip -4 2>/dev/null | head -1); \
+	if [ -z "$$ip" ]; then echo "Tailscale has no IPv4 address yet. Wait a moment, then retry."; exit 1; fi; \
+	echo "TAILSCALE_IP=$$ip" > tailscale-dns/.env; \
+	docker compose -f tailscale-dns/compose.yaml up -d && \
+	echo "DNS for *.zz.home.arpa answers $$ip. Now add $$ip as a nameserver for zz.home.arpa in the Tailscale admin console."
 
 backup: ## dump all MariaDB + Postgres databases into ./backups
 	@mkdir -p $(BACKUP_DIR)

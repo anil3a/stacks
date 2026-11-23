@@ -36,11 +36,16 @@ services:
       - traefik.enable=true
       - traefik.http.routers.traefik.rule=Host(`zztraefik.com`)
       - traefik.http.routers.traefik.entrypoints=web
+      # same app on its tailnet name (README "Phone / other devices")
+      - traefik.http.routers.traefik-ts.rule=Host(`traefik.zz.home.arpa`)
+      - traefik.http.routers.traefik-ts.entrypoints=web
+      - traefik.http.routers.traefik-ts.service=api@internal
       - traefik.http.routers.traefik.service=api@internal
       # traefik-home card
       - traefik.home=true
       - traefik.home.category=Infra
       - traefik.home.alias=Traefik
+      - traefik.home.url=http://zztraefik.com
       - traefik.home.description=Reverse proxy dashboard
       - traefik.home.image=https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/traefik.svg
 

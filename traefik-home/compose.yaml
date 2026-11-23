@@ -28,6 +28,9 @@ services:
       - traefik.enable=true
       - traefik.http.routers.traefik-home.rule=Host(`zzthome.com`)
       - traefik.http.routers.traefik-home.entrypoints=web
+      # same app on its tailnet name (README "Phone / other devices")
+      - traefik.http.routers.traefik-home-ts.rule=Host(`home.zz.home.arpa`)
+      - traefik.http.routers.traefik-home-ts.entrypoints=web
       - traefik.http.services.traefik-home.loadbalancer.server.port=80
       - traefik.home=false
 

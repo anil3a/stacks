@@ -1,0 +1,19 @@
+name: tailscale-dns
+
+# Optional: lets phones and other Tailscale devices open the apps by name.
+# Start with `make tailscale-dns` (it writes tailscale-dns/.env with this Mac's Tailscale IP),
+# then add the nameserver in the Tailscale admin console (README "Phone / other devices").
+services:
+  tailscale-dns:
+    image: coredns/coredns:1.11.3
+    container_name: tailscale-dns
+    restart: unless-stopped
+    command: ["-conf", "/etc/coredns/Corefile"]
+    environment:
+      TAILSCALE_IP: ${TAILSCALE_IP:?run make tailscale-dns}
+    volumes:
+      - ./Corefile:/etc/coredns/Corefile:ro
+    ports:
+      # Only on the Tailscale address, not on your Wi-Fi/LAN.
+      - "${TAILSCALE_IP}:53:53/udp"
+      - "${TAILSCALE_IP}:53:53/tcp"

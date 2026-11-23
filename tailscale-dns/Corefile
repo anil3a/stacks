@@ -1,0 +1,19 @@
+# DNS for phones and other devices on your tailnet: every name under zz.home.arpa
+# (pdf.zz.home.arpa, port.zz.home.arpa, ...) answers with this Mac's Tailscale IP, so
+# Traefik gets the request and picks the app by name. Nothing else is answered (no open
+# resolver). TAILSCALE_IP comes from tailscale-dns/.env, written by `make tailscale-dns`.
+zz.home.arpa:53 {
+    template IN A {
+        answer "{{ .Name }} 60 IN A {$TAILSCALE_IP}"
+    }
+    template IN AAAA {
+        rcode NOERROR
+    }
+    # Every other type (e.g. HTTPS/type 65, which iOS asks on each lookup): an empty NOERROR
+    # answer instead of SERVFAIL.
+    template ANY ANY {
+        rcode NOERROR
+    }
+    errors
+    log
+}

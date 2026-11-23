@@ -265,13 +265,59 @@ Portainer settings aren't backed up. Just create the admin user again.
 
 ## Phone / other devices via Tailscale
 
-`/etc/hosts` only affects this laptop, so `zzport.com` won't open on your phone even when
-it's on Tailscale. The containers *are* reachable over Tailscale; only the name lookup is missing.
-To make it work you'd add a small DNS server here that answers `zz*.com` with this laptop's
-Tailscale IP, then add it under **Split DNS** in the Tailscale admin console. This is not
-set up yet.
+`/etc/hosts` only affects this laptop, so `zzport.com` won't open on your phone. Every app
+therefore also has a **tailnet name** under `zz.home.arpa` (a name reserved for home
+networks, so it never clashes with a real website):
 
----
+| App | On this laptop | On any Tailscale device |
+| --- | --- | --- |
+| Start page | http://zzthome.com | http://home.zz.home.arpa |
+| Traefik | http://zztraefik.com | http://traefik.zz.home.arpa |
+| Portainer | http://zzport.com | http://port.zz.home.arpa |
+| phpMyAdmin / DB manager | http://zzpma.com, http://zzdbmanager.com | http://pma.zz.home.arpa, http://dbmanager.zz.home.arpa |
+| PDF Filler | http://zzpdffiller.com/?token=... | http://pdf.zz.home.arpa/?token=... |
+| MariaDB / Postgres | zzmariadb.com:3306, zzpgdb.com:5432 | mariadb.zz.home.arpa:3306, pgdb.zz.home.arpa:5432 |
+
+A small DNS server (`tailscale-dns/`, CoreDNS) answers every `*.zz.home.arpa` name with
+this Mac's Tailscale IP, and Tailscale sends only those lookups to it (split DNS).
+
+One-time setup:
+
+1. Install Tailscale on the Mac and the phone, signed in to the **same tailnet**, and make
+   sure the Mac shows as connected.
+2. `make tailscale-dns`. It reads the Mac's Tailscale IP (`100.x.y.z`), writes
+   `tailscale-dns/.env` and starts the DNS container on that address only (not on your
+   Wi-Fi). It prints the IP.
+3. In the Tailscale admin console (login.tailscale.com): **DNS** > **Nameservers** >
+   **Add nameserver** > **Custom**, enter that IP, turn on **Restrict to domain** (split
+   DNS) and type `zz.home.arpa`. Save.
+4. On the phone open http://pdf.zz.home.arpa/?token=... with the same token as in
+   `make logs s=pdf-filler`, only the host changed to `pdf.zz.home.arpa`.
+
+To check it from the phone or another tailnet device: `nslookup pdf.zz.home.arpa` (or a
+DNS app on the phone) should answer with the Mac's `100.x.y.z` address. On the Mac,
+`docker ps -f name=tailscale-dns` shows whether the DNS container runs (`make ps` lists
+only containers on the proxy network, so it doesn't show this one).
+
+**After a reboot or a Docker Desktop restart:** if Docker starts before Tailscale is
+connected, the DNS container can't use the Tailscale address yet, fails, and Docker doesn't
+retry. If the phone suddenly can't open the `zz.home.arpa` names, connect Tailscale on the
+Mac and run `make tailscale-dns` again.
+
+Notes:
+- Anyone on your tailnet can reach these apps (the admin tools have no extra login; PDF
+  Filler still needs its token). Share the tailnet only with your own devices.
+- The start page's cards link to the laptop names, so on the phone type the tailnet names
+  above instead.
+- If the Mac's Tailscale IP ever changes, run `make tailscale-dns` again and update the
+  nameserver in the admin console. Stop it with
+  `docker compose -f tailscale-dns/compose.yaml down` (`make down` doesn't touch it).
+- macOS may ask whether Docker can accept incoming connections; allow it, or the phone
+  gets no answer.
+- If Docker Desktop refuses to publish on the Tailscale address at all, change the two
+  `ports:` lines in `tailscale-dns/compose.yaml` to `"53:53/udp"` and `"53:53/tcp"`. That
+  also answers on your Wi-Fi/LAN, which is still harmless (it only answers
+  `zz.home.arpa` names, with the Tailscale address) but is no longer Tailscale-only.
 
 ## Troubleshooting
 
@@ -284,6 +330,8 @@ set up yet.
 | Portainer says the instance timed out | `make portainer`, then create the admin user within 5 minutes. |
 | New app missing from the start page | Wait 30 s; check it has `traefik.home=true`, `traefik.home.category` and `traefik.home.alias`. |
 | Forgot a database password | It's in `mariadb/.env` or `postgres/.env`. |
+| `make tailscale-dns` says "bind: can't assign requested address" (or "cannot assign requested address") | Tailscale isn't connected on the Mac, or its IP changed. Connect Tailscale and run `make tailscale-dns` again. |
+| Phone can't open `*.zz.home.arpa` after a reboot | The DNS container started before Tailscale. Connect Tailscale, then `make tailscale-dns`. |
 
 ---
 
@@ -299,5 +347,7 @@ set up yet.
   limit (Settings → Resources).
 - The admin tools (Portainer, phpMyAdmin, DB manager) have no extra login in front of
   them, and the ports listen on all network interfaces. That's fine on a home network or
-  Tailscale. On public Wi-Fi, consider `make down`, or bind ports to `127.0.0.1` in
-  `traefik/compose.yaml`.
+  Tailscale. On public Wi-Fi, consider `make down`. Binding Traefik's ports to
+  `127.0.0.1` in `traefik/compose.yaml` also hides them from the LAN, but turns off phone
+  access over Tailscale too; to keep it, bind to `127.0.0.1` and the Mac's Tailscale IP
+  (two lines per port, e.g. `"127.0.0.1:80:80"` and `"100.x.y.z:80:80"`).

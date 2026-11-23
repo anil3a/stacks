@@ -14,11 +14,15 @@ services:
       - traefik.enable=true
       - traefik.http.routers.portainer.rule=Host(`zzport.com`)
       - traefik.http.routers.portainer.entrypoints=web
+      # same app on its tailnet name (README "Phone / other devices")
+      - traefik.http.routers.portainer-ts.rule=Host(`port.zz.home.arpa`)
+      - traefik.http.routers.portainer-ts.entrypoints=web
       - traefik.http.services.portainer.loadbalancer.server.port=9000
       # traefik-home card
       - traefik.home=true
       - traefik.home.category=Infra
       - traefik.home.alias=Portainer
+      - traefik.home.url=http://zzport.com
       - traefik.home.description=Docker management
       - traefik.home.image=https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/portainer.svg
 

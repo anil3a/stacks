@@ -18,7 +18,8 @@ services:
       PDF_FILLER_CSV: ${PDF_FILLER_CSV:-}
       PDF_FILLER_MAPPING: /data/${PDF_FILLER_MAPPING_FILE:-mapping.json}
       PDF_FILLER_LISTEN: 0.0.0.0:8000
-      PDF_FILLER_ALLOWED_HOSTS: zzpdffiller.com
+      # the first name is the one printed in the log; the second is for Tailscale devices
+      PDF_FILLER_ALLOWED_HOSTS: zzpdffiller.com,pdf.zz.home.arpa
     volumes:
       - ./data:/data
     networks:
@@ -28,11 +29,15 @@ services:
       - traefik.enable=true
       - traefik.http.routers.pdf-filler.rule=Host(`zzpdffiller.com`)
       - traefik.http.routers.pdf-filler.entrypoints=web
+      # same app on its tailnet name (README "Phone / other devices")
+      - traefik.http.routers.pdf-filler-ts.rule=Host(`pdf.zz.home.arpa`)
+      - traefik.http.routers.pdf-filler-ts.entrypoints=web
       - traefik.http.services.pdf-filler.loadbalancer.server.port=8000
       # traefik-home card
       - traefik.home=true
       - traefik.home.category=Apps
       - traefik.home.alias=PDF Filler
+      - traefik.home.url=http://zzpdffiller.com
       - traefik.home.description=Map PDF form fields (address with token in make logs s=pdf-filler)
       - traefik.home.image=https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/adobe-acrobat.svg
 
