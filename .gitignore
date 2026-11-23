@@ -2,4 +2,7 @@
 .env
 # Database dumps from `make backup`
 backups/
+# pdf-filler forms, data and mappings (keep .gitkeep)
+pdf-filler/data/*
+!pdf-filler/data/.gitkeep
 .DS_Store

@@ -1,0 +1,41 @@
+name: pdf-filler
+
+# Mapping UI of python-pdf-filler at http://zzpdffiller.com
+# Built from source: the repo must be cloned at ~/Projects/personal/ai-repos/python-pdf-filler
+# (the build path below is relative to this folder). Put form.pdf (and data.csv if you
+# want column lists) into ./data; Save writes ./data/mapping.json.
+# Get the address with the token from: make logs s=pdf-filler
+services:
+  pdf-filler:
+    build: ../../ai-repos/python-pdf-filler
+    image: local/pdf-filler
+    container_name: pdf-filler
+    restart: unless-stopped
+    environment:
+      # Created by `make env` (32 random hex characters)
+      PDF_FILLER_UI_TOKEN: ${PDF_FILLER_UI_TOKEN:?set it in pdf-filler/.env}
+      PDF_FILLER_FORM: /data/${PDF_FILLER_FORM_FILE:-form.pdf}
+      PDF_FILLER_CSV: ${PDF_FILLER_CSV:-}
+      PDF_FILLER_MAPPING: /data/${PDF_FILLER_MAPPING_FILE:-mapping.json}
+      PDF_FILLER_LISTEN: 0.0.0.0:8000
+      PDF_FILLER_ALLOWED_HOSTS: zzpdffiller.com
+    volumes:
+      - ./data:/data
+    networks:
+      - proxy
+    # No ports: Traefik reaches it over the proxy network.
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.pdf-filler.rule=Host(`zzpdffiller.com`)
+      - traefik.http.routers.pdf-filler.entrypoints=web
+      - traefik.http.services.pdf-filler.loadbalancer.server.port=8000
+      # traefik-home card
+      - traefik.home=true
+      - traefik.home.category=Apps
+      - traefik.home.alias=PDF Filler
+      - traefik.home.description=Map PDF form fields (address with token in make logs s=pdf-filler)
+      - traefik.home.image=https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/adobe-acrobat.svg
+
+networks:
+  proxy:
+    external: true

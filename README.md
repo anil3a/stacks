@@ -18,6 +18,7 @@ On a new laptop: install Docker, clone this repo, run `make setup`. That's it.
 | `mariadb` | `zzmariadb.com:3306` | **One shared MariaDB (MySQL)** server. | One database server for every PHP/Laravel/WordPress project instead of one per project. Saves RAM and setup. |
 | `postgres` | `zzpgdb.com:5432` | **One shared PostgreSQL** server. | Same idea, for projects that use Postgres. |
 | `mariadb-admin` | http://zzpma.com, http://zzdbmanager.com | **phpMyAdmin**, plus a tiny form that creates a database + user in one click. | Browse/import data, and set up a new project's DB in seconds. Adapted from [simple-phpadminer-mariadb-docker](https://github.com/anil3a/simple-phpadminer-mariadb-docker). |
+| `pdf-filler` | http://zzpdffiller.com | **PDF form mapping UI** from [python-pdf-filler](../ai-repos/python-pdf-filler), built from source. | Map form fields to CSV columns or fixed values in the browser. Optional: needs that repo cloned next to this one (see [Using pdf-filler](#using-pdf-filler)). |
 
 ### How a request flows
 
@@ -136,6 +137,24 @@ Run `make` (or `make help`) to see them all.
 
 ---
 
+## Using pdf-filler
+
+Needs the python-pdf-filler repo at `~/Projects/personal/ai-repos/python-pdf-filler`
+(`make up` builds the image from it). Without it, remove `pdf-filler` from `STACKS` in the
+`Makefile`, or `make up` / `make setup` stop at that step.
+
+1. Put your form as `pdf-filler/data/form.pdf`. Optionally put a CSV there too and set
+   `PDF_FILLER_CSV=/data/data.csv` in `pdf-filler/.env` to get column lists and a preview.
+2. `make pdf-filler`, then `make logs s=pdf-filler` and open the `http://zzpdffiller.com/?token=...`
+   address it prints (Ctrl+C leaves the log).
+3. Save writes `pdf-filler/data/mapping.json`; use it with `pdf-filler fill --map`.
+
+If the form is missing, or the mapping no longer fits the form or CSV, the container
+stops with the reason in `make logs s=pdf-filler` and Docker keeps restarting it until
+that is fixed. The token is the same on every start (it lives in `pdf-filler/.env`). It is
+part of the page address, so Traefik's access log (`make logs s=traefik`) shows it; anyone
+who can read Docker logs can read the `.env` anyway.
+
 ## Adding a new app
 
 Create a folder, e.g. `myapp/compose.yaml`:
@@ -187,6 +206,7 @@ Everything except `traefik` is optional.
 | `mariadb` | Yes | **Also remove `mariadb-admin`**, which needs it. |
 | `postgres` | Yes | |
 | `mariadb-admin` | Yes | |
+| `pdf-filler` | Yes | Saved mappings are in `pdf-filler/data/` (plain files, not a volume). |
 
 ### Just switch it off for now
 
@@ -229,6 +249,8 @@ Copy to the new laptop (AirDrop, USB, a private cloud folder):
 backups/
 mariadb/.env
 postgres/.env
+pdf-filler/.env
+pdf-filler/data/
 ```
 
 Keep the `.env` files. The dumps include the database users, so restoring with

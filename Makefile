@@ -5,7 +5,7 @@
 # delete it from this list (see README "Removing a stack"). Override for a
 # single run with:  make up STACKS="traefik portainer"
 # ---------------------------------------------------------------------------
-STACKS ?= traefik traefik-home portainer mariadb postgres mariadb-admin
+STACKS ?= traefik traefik-home portainer mariadb postgres mariadb-admin pdf-filler
 
 # Same list, reversed, for shutting down (works on macOS and Linux)
 REVERSED := $(shell echo $(STACKS) | awk '{for (i=NF; i>0; i--) printf "%s ", $$i}')
@@ -51,7 +51,7 @@ network:
 	@docker network inspect proxy >/dev/null 2>&1 || docker network create proxy
 
 env: ## create missing .env files with random passwords
-	@for s in mariadb postgres; do \
+	@for s in mariadb postgres pdf-filler; do \
 	  if [ -d $$s ] && [ ! -f $$s/.env ]; then \
 	    sed "s/change-me/$$(openssl rand -hex 16)/" $$s/.env.example > $$s/.env && echo "created $$s/.env"; \
 	  fi; \
