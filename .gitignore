@@ -5,4 +5,6 @@ backups/
 # pdf-filler forms, data and mappings (keep .gitkeep)
 pdf-filler/data/*
 !pdf-filler/data/.gitkeep
+# pdf-filler's hosted app: database, uploads, signatures
+pdf-filler/app-data/
 .DS_Store

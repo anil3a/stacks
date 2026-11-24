@@ -1,27 +1,35 @@
 name: pdf-filler
 
-# Mapping UI of python-pdf-filler at http://zzpdffiller.com
-# Built from source: the repo must be cloned at ~/Projects/personal/ai-repos/python-pdf-filler
-# (the build path below is relative to this folder). Put form.pdf (and data.csv if you
-# want column lists) into ./data; Save writes ./data/mapping.json.
-# Get the address with the token from: make logs s=pdf-filler
+# python-pdf-filler's hosted app at http://zzpdffiller.com: accounts, shared folios,
+# signatures and an activity log (pdf-filler serve). Built from source: the repo must be
+# cloned at ~/Projects/personal/ai-repos/python-pdf-filler (the build path below is
+# relative to this folder). Everything it stores lives in ./app-data.
+# Create your account once: make pdf-user u=<name>  (sign-up stays closed; invite others
+# from a folio with an invite link).
 services:
   pdf-filler:
     build: ../../ai-repos/python-pdf-filler
     image: local/pdf-filler
     container_name: pdf-filler
     restart: unless-stopped
+    command: ["serve"]
     environment:
-      # Created by `make env` (32 random hex characters)
-      PDF_FILLER_UI_TOKEN: ${PDF_FILLER_UI_TOKEN:?set it in pdf-filler/.env}
-      PDF_FILLER_FORM: /data/${PDF_FILLER_FORM_FILE:-form.pdf}
-      PDF_FILLER_CSV: ${PDF_FILLER_CSV:-}
-      PDF_FILLER_MAPPING: /data/${PDF_FILLER_MAPPING_FILE:-mapping.json}
+      PDF_FILLER_DATA_DIR: /data
       PDF_FILLER_LISTEN: 0.0.0.0:8000
       # the first name is the one printed in the log; the second is for Tailscale devices
       PDF_FILLER_ALLOWED_HOSTS: zzpdffiller.com,pdf.zz.home.arpa
+      PDF_FILLER_SIGNUP: ${PDF_FILLER_SIGNUP:-closed}
+      PDF_FILLER_MAX_USERS: ${PDF_FILLER_MAX_USERS:-20}
+      # Traefik's network, so the activity log records people's real addresses. It is
+      # the subnet of `docker network inspect proxy`; if that network is ever recreated,
+      # check it and set PDF_FILLER_TRUSTED_PROXY in .env.
+      PDF_FILLER_TRUSTED_PROXY: ${PDF_FILLER_TRUSTED_PROXY:-172.18.0.0/16}
+      # Optional seal key for the activity log (32+ characters) in .env; keep a copy.
+      PDF_FILLER_AUDIT_KEY: ${PDF_FILLER_AUDIT_KEY:-}
+      # Plain HTTP here (zzpdffiller.com is only in /etc/hosts; the tailnet is encrypted),
+      # so the session cookie is not marked Secure; the app prints a warning about it.
     volumes:
-      - ./data:/data
+      - ./app-data:/data
     networks:
       - proxy
     # No ports: Traefik reaches it over the proxy network.
@@ -38,7 +46,7 @@ services:
       - traefik.home.category=Apps
       - traefik.home.alias=PDF Filler
       - traefik.home.url=http://zzpdffiller.com
-      - traefik.home.description=Map PDF form fields (address with token in make logs s=pdf-filler)
+      - traefik.home.description=Fill PDF forms together (log in; accounts via make pdf-user)
       - traefik.home.image=https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/adobe-acrobat.svg
 
 networks:

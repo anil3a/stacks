@@ -143,17 +143,22 @@ Needs the python-pdf-filler repo at `~/Projects/personal/ai-repos/python-pdf-fil
 (`make up` builds the image from it). Without it, remove `pdf-filler` from `STACKS` in the
 `Makefile`, or `make up` / `make setup` stop at that step.
 
-1. Put your form as `pdf-filler/data/form.pdf`. Optionally put a CSV there too and set
-   `PDF_FILLER_CSV=/data/data.csv` in `pdf-filler/.env` to get column lists and a preview.
-2. `make pdf-filler`, then `make logs s=pdf-filler` and open the `http://zzpdffiller.com/?token=...`
-   address it prints (Ctrl+C leaves the log).
-3. Save writes `pdf-filler/data/mapping.json`; use it with `pdf-filler fill --map`.
+It runs the hosted app (`pdf-filler serve`): accounts, shared folios, signatures and an
+activity log, at http://zzpdffiller.com (and http://pdf.zz.home.arpa over Tailscale).
 
-If the form is missing, or the mapping no longer fits the form or CSV, the container
-stops with the reason in `make logs s=pdf-filler` and Docker keeps restarting it until
-that is fixed. The token is the same on every start (it lives in `pdf-filler/.env`). It is
-part of the page address, so Traefik's access log (`make logs s=traefik`) shows it; anyone
-who can read Docker logs can read the `.env` anyway.
+1. `make pdf-filler`.
+2. Create your account once: `make pdf-user u=<name>` (it asks for the password twice).
+   Sign-up stays closed; invite other people from a folio with an invite link (one use,
+   7 days), which lets them create their own account.
+3. Open http://zzpdffiller.com and log in.
+
+Everything it stores (database, uploaded forms and data, mappings, signatures) is in
+`pdf-filler/app-data/` (git-ignored). Back that folder up to keep it. Optional settings go in
+`pdf-filler/.env` (see `pdf-filler/.env.example`), e.g. a seal key for the activity log.
+The old single-user mapping files in `pdf-filler/data/` are not used any more.
+
+The pages are plain HTTP here: fine on this Mac and over Tailscale (encrypted), but don't
+publish it to the internet without HTTPS in Traefik and `PDF_FILLER_COOKIE_SECURE=1`.
 
 ## Adding a new app
 

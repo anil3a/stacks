@@ -14,7 +14,7 @@ BACKUP_DIR := backups
 TAILSCALE ?= $(shell command -v tailscale 2>/dev/null || echo /Applications/Tailscale.app/Contents/MacOS/Tailscale)
 
 .DEFAULT_GOAL := help
-.PHONY: help setup check up down restart pull ps logs network env hosts tailscale-dns \
+.PHONY: help setup check up down restart pull ps logs network env hosts tailscale-dns pdf-user \
         backup restore-mariadb restore-postgres $(STACKS)
 
 help: ## show this help
@@ -74,6 +74,10 @@ tailscale-dns: ## phone access over Tailscale: DNS for *.zz.home.arpa (README "P
 	echo "TAILSCALE_IP=$$ip" > tailscale-dns/.env; \
 	docker compose -f tailscale-dns/compose.yaml up -d && \
 	echo "DNS for *.zz.home.arpa answers $$ip. Now add $$ip as a nameserver for zz.home.arpa in the Tailscale admin console."
+
+pdf-user: ## create a pdf-filler account: make pdf-user u=<name> (asks for the password)
+	@test -n "$(u)" || { echo "usage: make pdf-user u=<name>"; exit 1; }
+	docker exec -it pdf-filler pdf-filler users add "$(u)"
 
 backup: ## dump all MariaDB + Postgres databases into ./backups
 	@mkdir -p $(BACKUP_DIR)
