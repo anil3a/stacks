@@ -160,6 +160,10 @@ The old single-user mapping files in `pdf-filler/data/` are not used any more.
 The pages are plain HTTP here: fine on this Mac and over Tailscale (encrypted), but don't
 publish it to the internet without HTTPS in Traefik and `PDF_FILLER_COOKIE_SECURE=1`.
 
+The activity log records people's IP addresses as Traefik passes them on (every container
+on the `proxy` network is trusted for that). With Docker Desktop on the Mac, visitors from
+this Mac or your phone may all show the same Docker address there; that is expected.
+
 ## Adding a new app
 
 Create a folder, e.g. `myapp/compose.yaml`:
